@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/itsmanan/distributed-rate-limiter/internal/config"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/config"
 )
 
 type Server struct {

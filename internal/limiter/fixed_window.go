@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/itsmanan/distributed-rate-limiter/internal/config"
-	"github.com/itsmanan/distributed-rate-limiter/internal/store"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/config"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/store"
 )
 
 type FixedWindow struct {

@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/itsmanan/distributed-rate-limiter/internal/config"
-	"github.com/itsmanan/distributed-rate-limiter/internal/limiter"
-	"github.com/itsmanan/distributed-rate-limiter/internal/middleware"
-	"github.com/itsmanan/distributed-rate-limiter/internal/server"
-	"github.com/itsmanan/distributed-rate-limiter/internal/store"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/config"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/limiter"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/middleware"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/server"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/store"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/itsmanan/distributed-rate-limiter/internal/limiter"
+	"github.com/heyits-manan/distributed-rate-limiter/internal/limiter"
 )
 
 func RateLimit(rl limiter.RateLimiter) func(http.Handler) http.Handler {

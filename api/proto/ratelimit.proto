@@ -2,4 +2,4 @@ syntax = "proto3";
 
 package ratelimit.v1;
 
-option go_package = "github.com/itsmanan/distributed-rate-limiter/api/proto/ratelimit/v1";
+option go_package = "github.com/heyits-manan/distributed-rate-limiter/api/proto/ratelimit/v1";
