@@ -1,0 +1,13 @@
+server:
+  port: 8080
+  read_timeout: 5s
+  write_timeout: 10s
+  idle_timeout: 120s
+
+store:
+  shard_count: 64
+  gc_interval: 30s
+
+rate_limit:
+  requests_per_window: 100
+  window_size: 60s
