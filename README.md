@@ -65,20 +65,6 @@ Configure via environment variables or `configs/config.yaml`:
 | `RATE_LIMIT`         | `100`   | Requests per window                |
 | `WINDOW_SIZE`        | `60s`   | Window duration                    |
 
-## Architecture
-
-```
-Client → Middleware → Limiter → ShardedStore
-                        │            │
-                   ┌────┴────┐   64 shards
-                   │ Sliding │   each with
-                   │ Window  │   own RWMutex
-                   │ Fixed   │
-                   │ Window  │
-                   └─────────┘
-```
-
-All components are wired through interfaces — swap algorithms or storage backends without touching the rest.
 
 ## License
 
