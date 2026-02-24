@@ -14,7 +14,7 @@ This project intentionally avoids external stores like Redis to force direct eng
 
 ## Features
 
-- **Multiple algorithms** — sliding window (sorted timestamps) and fixed window (atomic counters)
+- **Algorithm** — fixed window (atomic counters)
 - **Sharded concurrent store** — 64 shards with per-shard `RWMutex` for fine-grained locking
 - **Background GC** — configurable sweep interval for expired entries
 - **HTTP middleware** — drop-in `net/http` middleware with standard rate-limit headers
