@@ -1,18 +1,19 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
 
+// Config holds all application configuration.
 type Config struct {
 	Server    ServerConfig
 	Store     StoreConfig
 	RateLimit RateLimitConfig
 }
 
+// ServerConfig holds HTTP server settings.
 type ServerConfig struct {
 	Port         int
 	ReadTimeout  time.Duration
@@ -20,17 +21,22 @@ type ServerConfig struct {
 	IdleTimeout  time.Duration
 }
 
+// StoreConfig holds in-memory store settings.
 type StoreConfig struct {
 	ShardCount int
 	GCInterval time.Duration
 }
 
+// RateLimitConfig holds rate limiting settings.
 type RateLimitConfig struct {
 	RequestsPerWindow int
 	WindowSize        time.Duration
 }
 
+// Load reads configuration from environment variables
+// and returns a Config with sensible defaults.
 func Load() (*Config, error) {
+
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:         8080,
@@ -51,42 +57,25 @@ func Load() (*Config, error) {
 	if v := os.Getenv("SERVER_PORT"); v != "" {
 		port, err := strconv.Atoi(v)
 		if err != nil {
-			return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
+			return nil, err
 		}
 		cfg.Server.Port = port
 	}
 
-	if v := os.Getenv("STORE_SHARD_COUNT"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil {
-			return nil, fmt.Errorf("invalid STORE_SHARD_COUNT: %w", err)
-		}
-		cfg.Store.ShardCount = n
-	}
-
-	if v := os.Getenv("STORE_GC_INTERVAL"); v != "" {
-		d, err := time.ParseDuration(v)
-		if err != nil {
-			return nil, fmt.Errorf("invalid STORE_GC_INTERVAL: %w", err)
-		}
-		cfg.Store.GCInterval = d
-	}
-
 	if v := os.Getenv("RATE_LIMIT"); v != "" {
-		n, err := strconv.Atoi(v)
+		rateLimit, err := strconv.Atoi(v)
 		if err != nil {
-			return nil, fmt.Errorf("invalid RATE_LIMIT: %w", err)
+			return nil, err
 		}
-		cfg.RateLimit.RequestsPerWindow = n
+		cfg.RateLimit.RequestsPerWindow = rateLimit
 	}
 
 	if v := os.Getenv("WINDOW_SIZE"); v != "" {
-		d, err := time.ParseDuration(v)
+		duration, err := time.ParseDuration(v)
 		if err != nil {
-			return nil, fmt.Errorf("invalid WINDOW_SIZE: %w", err)
+			return nil, err
 		}
-		cfg.RateLimit.WindowSize = d
+		cfg.RateLimit.WindowSize = duration
 	}
-
 	return cfg, nil
 }

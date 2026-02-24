@@ -2,237 +2,86 @@ package store
 
 import (
 	"context"
-	"log/slog"
-	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
-type counterEntry struct {
-	count     int
-	expiresAt time.Time
-}
-
+// shard is one bucket of the sharded map.
+// Each shard has its own lock so different keys don't block each other.
 type shard struct {
 	mu         sync.RWMutex
 	counters   map[string]*counterEntry
 	timestamps map[string][]time.Time
 }
 
+// counterEntry holds a count and its expiration time.
+type counterEntry struct {
+	count     int
+	expiresAt time.Time
+}
+
+// ShardedStore splits keys across multiple shards to reduce lock contention.
 type ShardedStore struct {
-	shards    []shard
-	shardMask int
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-
-	hits   atomic.Int64
-	misses atomic.Int64
-	evicts atomic.Int64
+	shards []shard
+	// TODO: Add fields for:
+	// - a way to stop the background GC goroutine (hint: context.CancelFunc)
+	// - a way to wait for the GC goroutine to finish (hint: sync.WaitGroup)
 }
 
-func NewShardedStore(cfg StoreConfig) *ShardedStore {
-	n := nextPowerOfTwo(cfg.ShardCount)
-
-	shards := make([]shard, n)
-	for i := range shards {
-		shards[i] = shard{
-			counters:   make(map[string]*counterEntry),
-			timestamps: make(map[string][]time.Time),
-		}
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	s := &ShardedStore{
-		shards:    shards,
-		shardMask: n - 1,
-		cancel:    cancel,
-	}
-
-	s.wg.Add(1)
-	go s.gcLoop(ctx, cfg.GCInterval)
-
-	return s
+// NewShardedStore creates a new store with the given number of shards
+// and starts a background GC goroutine.
+func NewShardedStore(shardCount int, gcInterval time.Duration) *ShardedStore {
+	// TODO: Create the shards slice, initialize each shard's maps
+	// TODO: Start a background goroutine that calls sweep() every gcInterval
+	// TODO: Return the store
+	return nil
 }
 
+// getShard returns the shard that owns the given key.
 func (s *ShardedStore) getShard(key string) *shard {
-	idx := shardIndex(key, len(s.shards))
-	return &s.shards[idx&s.shardMask]
-}
-
-// --- Store interface implementation ---
-
-func (s *ShardedStore) Increment(_ context.Context, key string, expiration time.Duration) (int, error) {
-	sh := s.getShard(key)
-
-	sh.mu.Lock()
-	defer sh.mu.Unlock()
-
-	now := time.Now()
-
-	e, ok := sh.counters[key]
-	if !ok || now.After(e.expiresAt) {
-		if ok {
-			s.evicts.Add(1)
-		}
-		s.misses.Add(1)
-		e = &counterEntry{expiresAt: now.Add(expiration)}
-		sh.counters[key] = e
-	} else {
-		s.hits.Add(1)
-	}
-
-	e.count++
-	return e.count, nil
-}
-
-func (s *ShardedStore) AddTimestamp(_ context.Context, key string, t time.Time, window time.Duration) error {
-	sh := s.getShard(key)
-
-	sh.mu.Lock()
-	defer sh.mu.Unlock()
-
-	cutoff := t.Add(-window)
-	existing := sh.timestamps[key]
-
-	pruneIdx := sort.Search(len(existing), func(i int) bool {
-		return existing[i].After(cutoff)
-	})
-
-	pruned := existing[pruneIdx:]
-	evicted := int64(pruneIdx)
-	if evicted > 0 {
-		s.evicts.Add(evicted)
-	}
-
-	sh.timestamps[key] = append(pruned, t)
-
+	// TODO: Hash the key (hint: hash/fnv) and pick a shard index
 	return nil
 }
 
-func (s *ShardedStore) CountInWindow(_ context.Context, key string, start, end time.Time) (int, error) {
-	sh := s.getShard(key)
-
-	sh.mu.RLock()
-	defer sh.mu.RUnlock()
-
-	ts := sh.timestamps[key]
-	if len(ts) == 0 {
-		s.misses.Add(1)
-		return 0, nil
-	}
-
-	s.hits.Add(1)
-
-	lo := sort.Search(len(ts), func(i int) bool {
-		return !ts[i].Before(start)
-	})
-	hi := sort.Search(len(ts), func(i int) bool {
-		return ts[i].After(end)
-	})
-
-	return hi - lo, nil
+func (s *ShardedStore) Increment(ctx context.Context, key string, expiration time.Duration) (int, error) {
+	// TODO: Get the shard for this key
+	// TODO: Lock the shard
+	// TODO: If the key doesn't exist or is expired, create a new entry
+	// TODO: Increment the counter
+	// TODO: Unlock and return the count
+	return 0, nil
 }
 
+func (s *ShardedStore) AddTimestamp(ctx context.Context, key string, t time.Time, window time.Duration) error {
+	// TODO: Get the shard for this key
+	// TODO: Lock the shard
+	// TODO: Remove timestamps older than the window (pruning)
+	// TODO: Append the new timestamp
+	// TODO: Unlock and return
+	return nil
+}
+
+func (s *ShardedStore) CountInWindow(ctx context.Context, key string, start, end time.Time) (int, error) {
+	// TODO: Get the shard for this key
+	// TODO: Read-lock the shard (hint: sh.mu.RLock() — allows parallel readers)
+	// TODO: Count timestamps between start and end
+	// TODO: Unlock and return the count
+	return 0, nil
+}
+
+// Close stops the background GC and waits for it to finish.
 func (s *ShardedStore) Close() error {
-	s.cancel()
-	s.wg.Wait()
+	// TODO: Cancel the GC goroutine's context
+	// TODO: Wait for it to finish
 	return nil
 }
 
-// --- Background GC ---
-
-func (s *ShardedStore) gcLoop(ctx context.Context, interval time.Duration) {
-	defer s.wg.Done()
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.sweep()
-		}
-	}
-}
-
+// sweep walks all shards and removes expired entries.
+// Called periodically by the background GC goroutine.
 func (s *ShardedStore) sweep() {
-	now := time.Now()
-	var totalEvicted int64
-
-	for i := range s.shards {
-		sh := &s.shards[i]
-		sh.mu.Lock()
-
-		for key, entry := range sh.counters {
-			if now.After(entry.expiresAt) {
-				delete(sh.counters, key)
-				totalEvicted++
-			}
-		}
-
-		for key, ts := range sh.timestamps {
-			if len(ts) == 0 {
-				delete(sh.timestamps, key)
-				continue
-			}
-			if now.Sub(ts[len(ts)-1]) > 5*time.Minute {
-				delete(sh.timestamps, key)
-				totalEvicted += int64(len(ts))
-			}
-		}
-
-		sh.mu.Unlock()
-	}
-
-	if totalEvicted > 0 {
-		s.evicts.Add(totalEvicted)
-		slog.Debug("gc sweep completed", "evicted", totalEvicted)
-	}
-}
-
-// --- Metrics ---
-
-type Metrics struct {
-	Hits       int64
-	Misses     int64
-	Evictions  int64
-	ShardCount int
-	Keys       int
-}
-
-func (s *ShardedStore) Metrics() Metrics {
-	var totalKeys int
-	for i := range s.shards {
-		sh := &s.shards[i]
-		sh.mu.RLock()
-		totalKeys += len(sh.counters) + len(sh.timestamps)
-		sh.mu.RUnlock()
-	}
-
-	return Metrics{
-		Hits:       s.hits.Load(),
-		Misses:     s.misses.Load(),
-		Evictions:  s.evicts.Load(),
-		ShardCount: len(s.shards),
-		Keys:       totalKeys,
-	}
-}
-
-// --- Helpers ---
-
-func nextPowerOfTwo(n int) int {
-	if n <= 0 {
-		return 1
-	}
-	n--
-	n |= n >> 1
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	return n + 1
+	// TODO: For each shard:
+	//   - Lock it
+	//   - Delete expired counters
+	//   - Delete stale timestamp lists
+	//   - Unlock it
 }
