@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"hash/fnv"
 	"sync"
 	"time"
 )
@@ -23,6 +24,8 @@ type counterEntry struct {
 // ShardedStore splits keys across multiple shards to reduce lock contention.
 type ShardedStore struct {
 	shards []shard
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 	// TODO: Add fields for:
 	// - a way to stop the background GC goroutine (hint: context.CancelFunc)
 	// - a way to wait for the GC goroutine to finish (hint: sync.WaitGroup)
@@ -31,16 +34,33 @@ type ShardedStore struct {
 // NewShardedStore creates a new store with the given number of shards
 // and starts a background GC goroutine.
 func NewShardedStore(shardCount int, gcInterval time.Duration) *ShardedStore {
-	// TODO: Create the shards slice, initialize each shard's maps
-	// TODO: Start a background goroutine that calls sweep() every gcInterval
-	// TODO: Return the store
-	return nil
+	shards := make([]shard, shardCount)
+	for i := range shards {
+		shards[i].counters = make(map[string]*counterEntry)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s := &ShardedStore{
+		shards: shards,
+		cancel: cancel,
+	}
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		<-ctx.Done()
+	}()
+
+	return s
 }
 
 // getShard returns the shard that owns the given key.
 func (s *ShardedStore) getShard(key string) *shard {
-	// TODO: Hash the key (hint: hash/fnv) and pick a shard index
-	return nil
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	number := h.Sum32()
+	index := number % uint32(len(s.shards))
+	return &s.shards[index]
 }
 
 func (s *ShardedStore) Increment(ctx context.Context, key string, expiration time.Duration) (int, error) {
@@ -71,8 +91,9 @@ func (s *ShardedStore) CountInWindow(ctx context.Context, key string, start, end
 
 // Close stops the background GC and waits for it to finish.
 func (s *ShardedStore) Close() error {
-	// TODO: Cancel the GC goroutine's context
-	// TODO: Wait for it to finish
+
+	s.cancel()
+	s.wg.Wait()
 	return nil
 }
 
