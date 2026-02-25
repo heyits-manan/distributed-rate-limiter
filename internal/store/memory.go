@@ -10,9 +10,8 @@ import (
 // shard is one bucket of the sharded map.
 // Each shard has its own lock so different keys don't block each other.
 type shard struct {
-	mu         sync.RWMutex
-	counters   map[string]*counterEntry
-	timestamps map[string][]time.Time
+	mu       sync.RWMutex
+	counters map[string]*counterEntry
 }
 
 // counterEntry holds a count and its expiration time.
@@ -84,14 +83,6 @@ func (s *ShardedStore) Increment(ctx context.Context, key string, expiration tim
 	}
 	entry.count++
 	return entry.count, nil
-}
-
-func (s *ShardedStore) AddTimestamp(ctx context.Context, key string, t time.Time, window time.Duration) error {
-	return nil
-}
-
-func (s *ShardedStore) CountInWindow(ctx context.Context, key string, start, end time.Time) (int, error) {
-	return 0, nil
 }
 
 // Close stops the background GC and waits for it to finish.
