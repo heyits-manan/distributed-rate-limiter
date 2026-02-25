@@ -26,9 +26,6 @@ type ShardedStore struct {
 	shards []shard
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
-	// TODO: Add fields for:
-	// - a way to stop the background GC goroutine (hint: context.CancelFunc)
-	// - a way to wait for the GC goroutine to finish (hint: sync.WaitGroup)
 }
 
 // NewShardedStore creates a new store with the given number of shards
@@ -64,12 +61,20 @@ func (s *ShardedStore) getShard(key string) *shard {
 }
 
 func (s *ShardedStore) Increment(ctx context.Context, key string, expiration time.Duration) (int, error) {
-	// TODO: Get the shard for this key
-	// TODO: Lock the shard
-	// TODO: If the key doesn't exist or is expired, create a new entry
-	// TODO: Increment the counter
-	// TODO: Unlock and return the count
-	return 0, nil
+	sh := s.getShard(key)
+	sh.mu.Lock()
+	defer sh.mu.Unlock()
+
+	entry, exists := sh.counters[key]
+	if !exists || time.Now().After(entry.expiresAt) {
+		entry = &counterEntry{
+			count:     0,
+			expiresAt: time.Now().Add(expiration),
+		}
+		sh.counters[key] = entry
+	}
+	entry.count++
+	return entry.count, nil
 }
 
 func (s *ShardedStore) AddTimestamp(ctx context.Context, key string, t time.Time, window time.Duration) error {
@@ -91,7 +96,6 @@ func (s *ShardedStore) CountInWindow(ctx context.Context, key string, start, end
 
 // Close stops the background GC and waits for it to finish.
 func (s *ShardedStore) Close() error {
-
 	s.cancel()
 	s.wg.Wait()
 	return nil

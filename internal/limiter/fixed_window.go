@@ -2,6 +2,7 @@ package limiter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/heyits-manan/distributed-rate-limiter/internal/store"
@@ -25,12 +26,28 @@ func NewFixedWindow(s store.Store, limit int, window time.Duration) *FixedWindow
 }
 
 func (fw *FixedWindow) Allow(ctx context.Context, key string) (*Result, error) {
-	// TODO:
-	// 1. Get current time
-	// 2. Build a window key like "rl:fw:<key>:<window_start_unix>"
-	//    (hint: now.Truncate(fw.window) gives you the start of the current window)
-	// 3. Call fw.store.Increment(ctx, windowKey, fw.window)
-	// 4. If count > fw.limit → return denied result
-	// 5. Return allowed result with remaining count
-	return nil, nil
+	now := time.Now()
+	windowStart := now.Truncate(fw.window)
+	windowKey := fmt.Sprintf("%s:%d", key, windowStart.Unix())
+	resetAt := windowStart.Add(fw.window)
+	count, error := fw.store.Increment(ctx, windowKey, fw.window)
+	if error != nil {
+		return nil, error
+	}
+	if count > fw.limit {
+		return &Result{
+			Allowed:    false,
+			Limit:      fw.limit,
+			Remaining:  0,
+			RetryAfter: resetAt.Sub(now),
+			ResetAt:    resetAt,
+		}, nil
+	}
+
+	return &Result{
+		Allowed:   true,
+		Limit:     fw.limit,
+		Remaining: fw.limit - count,
+		ResetAt:   resetAt,
+	}, nil
 }
