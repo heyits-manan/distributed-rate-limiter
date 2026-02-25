@@ -78,19 +78,10 @@ func (s *ShardedStore) Increment(ctx context.Context, key string, expiration tim
 }
 
 func (s *ShardedStore) AddTimestamp(ctx context.Context, key string, t time.Time, window time.Duration) error {
-	// TODO: Get the shard for this key
-	// TODO: Lock the shard
-	// TODO: Remove timestamps older than the window (pruning)
-	// TODO: Append the new timestamp
-	// TODO: Unlock and return
 	return nil
 }
 
 func (s *ShardedStore) CountInWindow(ctx context.Context, key string, start, end time.Time) (int, error) {
-	// TODO: Get the shard for this key
-	// TODO: Read-lock the shard (hint: sh.mu.RLock() — allows parallel readers)
-	// TODO: Count timestamps between start and end
-	// TODO: Unlock and return the count
 	return 0, nil
 }
 
@@ -104,9 +95,4 @@ func (s *ShardedStore) Close() error {
 // sweep walks all shards and removes expired entries.
 // Called periodically by the background GC goroutine.
 func (s *ShardedStore) sweep() {
-	// TODO: For each shard:
-	//   - Lock it
-	//   - Delete expired counters
-	//   - Delete stale timestamp lists
-	//   - Unlock it
 }

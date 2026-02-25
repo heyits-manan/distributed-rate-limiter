@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/heyits-manan/distributed-rate-limiter/internal/config"
@@ -14,28 +15,42 @@ type Server struct {
 
 // New creates a new Server with the given config and middleware chain.
 func New(cfg config.ServerConfig, middlewares ...func(http.Handler) http.Handler) *Server {
-	_ = http.NewServeMux() // TODO: assign to `mux` and register routes on it, e.g.:
-	//   mux.HandleFunc("GET /healthz", healthHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ok")
+	})
 
-	// TODO: Wrap mux with your middleware chain
-	// (hint: loop through middlewares and wrap: handler = mw(handler))
+	var handler http.Handler = mux
+	for _, mw := range middlewares {
+		handler = mw(handler)
+	}
 
-	// TODO: Create and return the Server with http.Server configured
-	//   - Addr: fmt.Sprintf(":%d", cfg.Port)
-	//   - Handler: your wrapped handler
-	//   - ReadTimeout, WriteTimeout, IdleTimeout from cfg
-
-	return nil
+	return &Server{
+		httpServer: &http.Server{
+			Addr:         fmt.Sprintf(":%d", cfg.Port),
+			Handler:      handler,
+			ReadTimeout:  cfg.ReadTimeout,
+			WriteTimeout: cfg.WriteTimeout,
+			IdleTimeout:  cfg.IdleTimeout,
+		},
+	}
 }
 
 // Run starts the server and blocks until ctx is cancelled (e.g. Ctrl+C).
 // It then shuts down the server gracefully.
 func (s *Server) Run(ctx context.Context) error {
-	// TODO:
-	// 1. Start s.httpServer.ListenAndServe() in a goroutine
-	// 2. Wait for either:
-	//    a. The server to fail with an error → return the error
-	//    b. ctx to be cancelled (Ctrl+C) → call s.httpServer.Shutdown() gracefully
-	// (hint: use a channel and select{})
-	return nil
+	errCh := make(chan error, 1)
+	go func() {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return s.httpServer.Shutdown(context.Background())
+	}
 }
