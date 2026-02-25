@@ -30,9 +30,9 @@ func (fw *FixedWindow) Allow(ctx context.Context, key string) (*Result, error) {
 	windowStart := now.Truncate(fw.window)
 	windowKey := fmt.Sprintf("%s:%d", key, windowStart.Unix())
 	resetAt := windowStart.Add(fw.window)
-	count, error := fw.store.Increment(ctx, windowKey, fw.window)
-	if error != nil {
-		return nil, error
+	count, err := fw.store.Increment(ctx, windowKey, fw.window)
+	if err != nil {
+		return nil, err
 	}
 	if count > fw.limit {
 		return &Result{

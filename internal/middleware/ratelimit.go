@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/heyits-manan/distributed-rate-limiter/internal/limiter"
 )
@@ -11,19 +13,23 @@ import (
 func RateLimit(rl limiter.RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// TODO:
-			// 1. Extract the client key from the request (hint: IP address from r.RemoteAddr)
-			// 2. Call rl.Allow(r.Context(), key)
-			// 3. Set response headers:
-			//    - X-RateLimit-Limit (the max)
-			//    - X-RateLimit-Remaining (how many left)
-			//    - X-RateLimit-Reset (when the window resets, as unix timestamp)
-			// 4. If NOT allowed:
-			//    - Set Retry-After header
-			//    - Return 429 Too Many Requests
-			// 5. If allowed:
-			//    - Call next.ServeHTTP(w, r) to continue to the actual handler
+			host, _, _ := net.SplitHostPort(r.RemoteAddr)
+			key := host
 
+			result, err := rl.Allow(r.Context(), key)
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
+			w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+
+			if !result.Allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(int(result.RetryAfter.Seconds())))
+				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
