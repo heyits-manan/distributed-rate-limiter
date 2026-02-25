@@ -45,7 +45,16 @@ func NewShardedStore(shardCount int, gcInterval time.Duration) *ShardedStore {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		<-ctx.Done()
+		ticker := time.NewTicker(gcInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.sweep()
+			}
+		}
 	}()
 
 	return s
@@ -95,4 +104,15 @@ func (s *ShardedStore) Close() error {
 // sweep walks all shards and removes expired entries.
 // Called periodically by the background GC goroutine.
 func (s *ShardedStore) sweep() {
+	for i := range s.shards {
+		sh := &s.shards[i]
+		sh.mu.Lock()
+		for key, entry := range sh.counters {
+			if time.Now().After(entry.expiresAt) {
+				delete(sh.counters, key)
+			}
+		}
+		sh.mu.Unlock()
+	}
+
 }
