@@ -22,6 +22,18 @@ This project intentionally avoids external stores like Redis to force direct eng
 - **Graceful shutdown** — context-based lifecycle with `WaitGroup` coordination
 - **Docker-ready** — multi-stage build with distroless runtime
 
+## **Benchmark**
+
+| Shards | Ops         | ns/op | Relative Performance |
+| ------ | ----------- | ----- | -------------------- |
+| 1      | 5,751,855   | 227.9 | Baseline (slowest)   |
+| 4      | 10,654,365  | 110.8 | ~2× faster           |
+| 16     | 16,954,759  | 66.9  | ~3.4× faster         |
+| 64     | 22,620,897  | 52.5  | ~4× faster           |
+| 256    | Even faster | —     | Lower contention     |
+
+
+
 ## Quick Start
 
 ```bash
